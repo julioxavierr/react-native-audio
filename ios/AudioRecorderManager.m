@@ -128,8 +128,12 @@ RCT_EXPORT_MODULE();
 
   // Check the type of notification
   if ([notification.name isEqualToString:AVAudioSessionInterruptionNotification]) {
+      NSLog(@"audioSessionInterruptionNotification NOTIFICATION");
+      NSLog(@"_resumeOnInterruptionEnd %i", _resumeOnInterruptionEnd);
+
       // Check to see if it was a begin interruption
       if ([[notification.userInfo valueForKey:AVAudioSessionInterruptionTypeKey] isEqualToNumber:[NSNumber numberWithInt:AVAudioSessionInterruptionTypeBegan]]) {
+        NSLog(@"audioSessionInterruptionNotification INTERRUPTION BEGAN");
         // dispatch event over the bridge
         [self.bridge.eventDispatcher sendAppEventWithName:AudioRecorderEventInterruptionBegin body:@{}];
 
@@ -144,17 +148,22 @@ RCT_EXPORT_MODULE();
           [_recordSession setActive:NO error:&error];
           
           if (error) {
-              NSLog(@"%@", error);
+              NSLog(@"audioSessionInterruptionNotification ERROR %@", error);
           }
         }
 
       } else if([[notification.userInfo valueForKey:AVAudioSessionInterruptionTypeKey] isEqualToNumber:[NSNumber numberWithInt:AVAudioSessionInterruptionTypeEnded]]){
+        NSLog(@"audioSessionInterruptionNotification INTERRUPTION END");
         // dispatch event over the bridge
         [self.bridge.eventDispatcher sendAppEventWithName:AudioRecorderEventInterruptionEnd body:@{}];
 
         if (_resumeOnInterruptionEnd) {
           [self resumeRecording];
         }
+      } else if([[notification.userInfo valueForKey:AVAudioSessionInterruptionOptionKey] isEqualToNumber:[NSNumber numberWithInt:AVAudioSessionInterruptionOptionShouldResume]]) {
+        NSLog(@"audioSessionInterruptionNotification INTERRUPTION SHOULD RESUME");
+
+        [self resumeRecording];
       }
   }
 }
@@ -176,7 +185,7 @@ RCT_EXPORT_METHOD(prepareRecordingAtPath:(NSString *)path sampleRate:(float)samp
   _audioSampleRate = [NSNumber numberWithFloat:44100.0];
   _meteringEnabled = NO;
   _includeBase64 = NO;
-  _resumeOnInterruptionEnd = YES;
+  _resumeOnInterruptionEnd = NO;
 
   // Set audio quality from options
   if (quality != nil) {
@@ -250,9 +259,7 @@ RCT_EXPORT_METHOD(prepareRecordingAtPath:(NSString *)path sampleRate:(float)samp
     _includeBase64 = includeBase64;
   }
 
-  if (resumeOnInterruptionEnd != nil && resumeOnInterruptionEnd != YES) {
-    _resumeOnInterruptionEnd = resumeOnInterruptionEnd;
-  }
+  // TODO: set _resumeOnInterruptionEnd
 
   NSError *error = nil;
 
